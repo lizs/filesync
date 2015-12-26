@@ -26,9 +26,7 @@ namespace HttpSynchronizer
             LocalPath = localPath;
 
             if (!Directory.Exists(localPath))
-            {
                 Directory.CreateDirectory(localPath);
-            }
         }
 
         public void Sync(Action<bool> cb)
