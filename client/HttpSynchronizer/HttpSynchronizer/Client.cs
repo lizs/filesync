@@ -54,7 +54,18 @@ namespace HttpSynchronizer
                         {
                             foreach (var path in differences)
                             {
-                                downloader.DownloadFile(new Uri(Url + path), path);
+                                var drinfo = new DirectoryInfo(path);
+                                if (Directory.Exists(drinfo.FullName))
+                                    Directory.CreateDirectory(drinfo.FullName);
+
+                                try
+                                {
+                                    downloader.DownloadFile(new Uri(Url + path), LocalPath + path);
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine(e.InnerException != null ? e.InnerException.Message : e.Message);
+                                }
                             }
                         }
 
