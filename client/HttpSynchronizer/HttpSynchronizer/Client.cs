@@ -54,9 +54,9 @@ namespace HttpSynchronizer
                         {
                             foreach (var path in differences)
                             {
-                                var drinfo = new DirectoryInfo(path);
-                                if (Directory.Exists(drinfo.FullName))
-                                    Directory.CreateDirectory(drinfo.FullName);
+                                var drinfo = new DirectoryInfo(LocalPath + path);
+                                if (!Directory.Exists(drinfo.Parent.FullName))
+                                    Directory.CreateDirectory(drinfo.Parent.FullName);
 
                                 try
                                 {
