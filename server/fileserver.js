@@ -16,8 +16,17 @@ var server = http.createServer(dispatch(
         res.end(JSON.stringify(md5json));
     },
 
-    '/public/(\\w+.\\w+)': function(req, res)
-    {            
+    '/public/(\\w+.\\w+)': file_server_handle
+   }, 
+   'res', 
+   function(){
+    log("next invoked!");
+}));
+
+server.listen(8080);
+
+var file_server_handle = function(req, res) 
+{            
       req.addListener('end', function ()
       {
           fileServer.serve(req, res, function (err, result)
@@ -26,18 +35,14 @@ var server = http.createServer(dispatch(
                         { // There was an error serving the file
                             console.error("Error serving " + req.url + " - " + err.message);
 
-		                // Respond to the client
-		                res.writeHead(err.status, err.headers);
-		                res.end();
-		            }
+                        // Respond to the client
+                        res.writeHead(err.status, err.headers);
+                        res.end();
+                    }
                 });
       }).resume();
   }
-}, 'res', function(){
-    log("next invoked!");
-}));
-
-server.listen(8080);
+}
 
 
 // One-liner for current directory, ignores .dotfiles
