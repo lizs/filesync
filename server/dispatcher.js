@@ -57,22 +57,29 @@ function splitURL(url) {
  * The exported function for use as a Connect provider.
  * See test/test-dispatch.js for example usage.
  */
-module.exports = function (urls) {
+module.exports = function (urls) 
+{
     var compiled = compileKeys(flattenKeys(urls));
-    return function (req, res, next) {
+    return function (req, res, next) 
+    {
         var args = [req, res];
-        if (next) {
+        if (next) 
+        {
             args.push(next);
         }
-        if(!compiled.some(function(x){
+        if(!compiled.some(function(x)
+        {
             var match = x[0].exec(url.parse(req.url).pathname);
-            if (match) {
-                if (!x[1] || x[1] === req.method) {
+            if (match) 
+            {
+                if (!x[1] || x[1] === req.method) 
+                {
                     x[2].apply(null, args.concat(match.slice(1)));
                     return true;
                 }
             }
             return false;
-        })) next();
+        })) 
+            next();
     };
 };

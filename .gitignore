@@ -47,6 +47,7 @@ Temporary Items
 # bin obj目录
 bin/
 obj/
+node_modules/
 packages/
 Publish/ChatC
 Publish/ChatS
