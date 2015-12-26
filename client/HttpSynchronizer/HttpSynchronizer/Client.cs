@@ -34,7 +34,7 @@ namespace HttpSynchronizer
         public void Sync(Action<bool> cb)
         {
             // scan local md5
-            ScanMd5();
+            ScanLocalMd5();
 
             try
             {
@@ -43,31 +43,24 @@ namespace HttpSynchronizer
                 {
                     httpClient.DownloadStringCompleted += (sender, args) =>
                     {
+                        if (args.Error != null)
+                        {
+                            Console.WriteLine(args.Error.InnerException != null ? args.Error.InnerException.Message : args.Error.Message);
+                            cb(false);
+                            return;
+                        }
+
                         // parse md5 json
                         ParseRemoteMd5(args.Result);
 
-                        // differences
+                        // files
                         var differences = Differences();
 
                         // download
-                        using (var downloader = new WebClient())
-                        {
-                            foreach (var path in differences)
-                            {
-                                var drinfo = new DirectoryInfo(LocalPath + path);
-                                if (!Directory.Exists(drinfo.Parent.FullName))
-                                    Directory.CreateDirectory(drinfo.Parent.FullName);
+                        DownLoad(differences);
 
-                                try
-                                {
-                                    downloader.DownloadFile(new Uri(Url + path), LocalPath + path);
-                                }
-                                catch (Exception e)
-                                {
-                                    Console.WriteLine(e.InnerException != null ? e.InnerException.Message : e.Message);
-                                }
-                            }
-                        }
+                        // del unusable files
+                        Clear();
 
                         cb(true);
                     };
@@ -77,6 +70,72 @@ namespace HttpSynchronizer
             catch (Exception e)
             {
                 cb(false);
+            }
+        }
+
+        private void Clear()
+        {
+            // rescan md5
+            ReScanLocalMd5();
+
+            // delete expired files
+            //DeleteExpiredFiles();
+
+            // remove directory
+            //DeleteEmptyFolders(LocalPath);
+        }
+
+        private void DeleteExpiredFiles()
+        {
+            var unused = (from kv in _localMd5Map
+                where !_remoteMd5Map.ContainsKey(kv.Key)
+                select kv.Key).ToList();
+
+            // remove file
+            foreach (var file in unused.Where(File.Exists))
+            {
+                File.Delete(file);
+            }
+        }
+
+        private void ReScanLocalMd5()
+        {
+            _localMd5Map.Clear();
+            ScanLocalMd5();
+        }
+
+        private void DeleteEmptyFolders(string root)
+        {
+            foreach (var directory in Directory.GetDirectories(root))
+            {
+                DeleteEmptyFolders(directory);
+                if (Directory.GetFiles(directory).Length == 0 &&
+                    Directory.GetDirectories(directory).Length == 0)
+                {
+                    Directory.Delete(directory, false);
+                }
+            }
+        }
+
+        private void DownLoad(IEnumerable<string> files)
+        {
+            using (var downloader = new WebClient())
+            {
+                foreach (var path in files)
+               { 
+                    var drinfo = new DirectoryInfo(LocalPath + path);
+                    if (!Directory.Exists(drinfo.Parent.FullName))
+                        Directory.CreateDirectory(drinfo.Parent.FullName);
+
+                    try
+                    {
+                        downloader.DownloadFile(new Uri(Url + path), LocalPath + path);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.InnerException != null ? e.InnerException.Message : e.Message);
+                    }
+                }
             }
         }
 
@@ -100,17 +159,24 @@ namespace HttpSynchronizer
             }
         }
 
-        private void ScanMd5()
+        private void ScanLocalMd5()
         {
-            var dic = new DirectoryInfo(LocalPath);
+            var dir = new DirectoryInfo(LocalPath);
             try
             {
                 using (var md5 = MD5.Create())
                 {
-                    foreach (var fi in dic.EnumerateFiles())
+                    foreach (var fi in dir.EnumerateFiles("*.*", SearchOption.AllDirectories))
                     {
                         var text = File.ReadAllText(fi.FullName);
-                        _localMd5Map[fi.FullName] = GetMd5Hash(md5, text);
+
+                        var safePath = fi.FullName.Replace('\\', '/');
+                        var idx = safePath.LastIndexOf(LocalPath);
+                        if (idx != -1)
+                        {
+                            var refPath = safePath.Substring(idx + LocalPath.Length);
+                            _localMd5Map[refPath] = GetMd5Hash(md5, text);
+                        }
                     }
                 }
             }
