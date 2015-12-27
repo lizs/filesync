@@ -60,6 +60,7 @@ var getmd5 = function(path, cb){
 
 var remove_root = function(path){
 	path = path.replace('public\\', '');
+	path = path.replace(/\\/g, '/');
 	return path;
 }
 

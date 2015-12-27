@@ -77,17 +77,17 @@ namespace HttpSynchronizer
             ReScanLocalMd5();
 
             // delete expired files
-            //DeleteExpiredFiles();
+            DeleteExpiredFiles();
 
             // remove directory
-            //DeleteEmptyFolders(LocalPath);
+            DeleteEmptyFolders(LocalPath);
         }
 
         private void DeleteExpiredFiles()
         {
             var unused = (from kv in _localMd5Map
                 where !_remoteMd5Map.ContainsKey(kv.Key)
-                select kv.Key).ToList();
+                select LocalPath + kv.Key).ToList();
 
             // remove file
             foreach (var file in unused.Where(File.Exists))
@@ -166,7 +166,7 @@ namespace HttpSynchronizer
                 {
                     foreach (var fi in dir.EnumerateFiles("*.*", SearchOption.AllDirectories))
                     {
-                        var text = File.ReadAllText(fi.FullName);
+                        var text = File.ReadAllBytes(fi.FullName);
 
                         var safePath = fi.FullName.Replace('\\', '/');
                         var idx = safePath.LastIndexOf(LocalPath);
@@ -184,10 +184,10 @@ namespace HttpSynchronizer
             }
         }
 
-        private static string GetMd5Hash(MD5 md5Hash, string input)
+        private static string GetMd5Hash(MD5 md5Hash, byte[] input)
         {
-            // Convert the input string to a byte array and compute the hash.
-            var data = md5Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
+            // Convert the data string to a byte array and compute the hash.
+            var data = md5Hash.ComputeHash(input);
 
             // Create a new Stringbuilder to collect the bytes
             // and create a string.
