@@ -50,6 +50,7 @@ obj/
 packages
 public
 node_modules
+UnityDemo
 Publish/ChatC
 Publish/ChatS
 *.txt

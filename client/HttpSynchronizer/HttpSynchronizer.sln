@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HttpSynchronizer", "HttpSynchronizer\HttpSynchronizer.csproj", "{46DE6E1E-4ACF-4235-B03F-4829311099C8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{230CEEB2-3C1C-4346-B227-A18F4DB87E4F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{46DE6E1E-4ACF-4235-B03F-4829311099C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{46DE6E1E-4ACF-4235-B03F-4829311099C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{46DE6E1E-4ACF-4235-B03F-4829311099C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{230CEEB2-3C1C-4346-B227-A18F4DB87E4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{230CEEB2-3C1C-4346-B227-A18F4DB87E4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{230CEEB2-3C1C-4346-B227-A18F4DB87E4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{230CEEB2-3C1C-4346-B227-A18F4DB87E4F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

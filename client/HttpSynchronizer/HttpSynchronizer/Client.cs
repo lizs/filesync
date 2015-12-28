@@ -12,6 +12,13 @@ namespace HttpSynchronizer
 {
     public class Client
     {
+        public event Action<IEnumerable<KeyValuePair<string, string>>> OnRemoteMd5;
+        public event Action<IEnumerable<KeyValuePair<string, string>>> OnLocalMd5;
+        public event Action<string> OnFileCreate;
+        public event Action<string> OnFileDel;
+        public event Action<string> OnFolderDel;
+        public event Action<List<string>> OnDiff; 
+
         public string Url { get; private set; }
         public string RemoteMd5Path { get; private set; }
         public string LocalPath { get; private set; }
@@ -22,20 +29,20 @@ namespace HttpSynchronizer
         public Client(string url, string remoteMd5Path, string localPath)
         {
             Url = url;
-            RemoteMd5Path = remoteMd5Path;
-            LocalPath = localPath;
+            RemoteMd5Path = Conver2SafePath(remoteMd5Path);
+            LocalPath = Conver2SafePath(localPath);
 
             if (!Directory.Exists(localPath))
                 Directory.CreateDirectory(localPath);
         }
 
-        public void Sync(Action<bool> cb)
+        public void Sync(Action<bool, string> cb)
         {
-            // scan local md5
-            ScanLocalMd5();
-
             try
             {
+                // scan local md5
+                ScanLocalMd5();
+
                 // get md5
                 using (var httpClient = new WebClient())
                 {
@@ -43,8 +50,9 @@ namespace HttpSynchronizer
                     {
                         if (args.Error != null)
                         {
-                            Console.WriteLine(args.Error.InnerException != null ? args.Error.InnerException.Message : args.Error.Message);
-                            cb(false);
+                            var msg = MsgFromException(args.Error);
+                            Console.WriteLine(msg);
+                            cb(false, msg);
                             return;
                         }
 
@@ -52,7 +60,9 @@ namespace HttpSynchronizer
                         ParseRemoteMd5(args.Result);
 
                         // files
-                        var differences = Differences();
+                        var differences = Differences().ToList();
+                        if (OnDiff != null)
+                            OnDiff(differences);
 
                         // download
                         DownLoad(differences);
@@ -60,21 +70,21 @@ namespace HttpSynchronizer
                         // del unusable files
                         Clear();
 
-                        cb(true);
+                        cb(true, "ok");
                     };
                     httpClient.DownloadStringAsync(new Uri(Url + RemoteMd5Path));
                 }
             }
             catch (Exception e)
             {
-                cb(false);
+                cb(false, MsgFromException(e));
             }
         }
 
         private void Clear()
         {
             // rescan md5
-            ReScanLocalMd5();
+            ScanLocalMd5();
 
             // delete expired files
             DeleteExpiredFiles();
@@ -93,13 +103,10 @@ namespace HttpSynchronizer
             foreach (var file in unused.Where(File.Exists))
             {
                 File.Delete(file);
-            }
-        }
 
-        private void ReScanLocalMd5()
-        {
-            _localMd5Map.Clear();
-            ScanLocalMd5();
+                if (OnFileDel != null)
+                    OnFileDel(file);
+            }
         }
 
         private void DeleteEmptyFolders(string root)
@@ -107,11 +114,12 @@ namespace HttpSynchronizer
             foreach (var directory in Directory.GetDirectories(root))
             {
                 DeleteEmptyFolders(directory);
-                if (Directory.GetFiles(directory).Length == 0 &&
-                    Directory.GetDirectories(directory).Length == 0)
-                {
-                    Directory.Delete(directory, false);
-                }
+                if (Directory.GetFiles(directory).Length != 0 || Directory.GetDirectories(directory).Length != 0)
+                    continue;
+
+                Directory.Delete(directory, false);
+                if (OnFolderDel != null)
+                    OnFolderDel(directory);
             }
         }
 
@@ -122,12 +130,15 @@ namespace HttpSynchronizer
                 foreach (var path in files)
                { 
                     var drinfo = new DirectoryInfo(LocalPath + path);
-                    if (!Directory.Exists(drinfo.Parent.FullName))
+                    if (drinfo.Parent != null && !Directory.Exists(drinfo.Parent.FullName))
                         Directory.CreateDirectory(drinfo.Parent.FullName);
 
                     try
                     {
                         downloader.DownloadFile(new Uri(Url + path), LocalPath + path);
+
+                        if (OnFileCreate != null)
+                            OnFileCreate(LocalPath + path);
                     }
                     catch (Exception e)
                     {
@@ -145,42 +156,42 @@ namespace HttpSynchronizer
         {
             return (from kv in _remoteMd5Map
                     where !_localMd5Map.ContainsKey(kv.Key) || _remoteMd5Map[kv.Key] != _localMd5Map[kv.Key] 
-                    select kv.Key).ToList();
+                    select kv.Key);
         }
 
         private void ParseRemoteMd5(string jsonText)
         {
-            var data = (IDictionary)JsonMapper.ToObject(jsonText);
+            _remoteMd5Map.Clear();
+
+            var data = (IDictionary) JsonMapper.ToObject(jsonText);
             foreach (var key in data.Keys)
             {
-                _remoteMd5Map[(string)key] = data[key].ToString();
+                _remoteMd5Map[(string) key] = data[key].ToString();
             }
+
+            if (OnRemoteMd5 != null)
+                OnRemoteMd5(_remoteMd5Map);
         }
 
         private void ScanLocalMd5()
         {
+            _localMd5Map.Clear();
             var dir = new DirectoryInfo(LocalPath);
-            try
-            {
-                using (var md5 = MD5.Create())
-                {
-                    foreach (var fi in dir.EnumerateFiles("*.*", SearchOption.AllDirectories))
-                    {
-                        var text = File.ReadAllBytes(fi.FullName);
 
-                        var safePath = fi.FullName.Replace('\\', '/');
-                        var idx = safePath.LastIndexOf(LocalPath);
-                        if (idx != -1)
-                        {
-                            var refPath = safePath.Substring(idx + LocalPath.Length);
-                            _localMd5Map[refPath] = GetMd5Hash(md5, text);
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
+            using (var md5 = MD5.Create())
             {
-                Console.WriteLine(e.Message);
+                foreach (var fi in dir.GetFiles("*.*", SearchOption.AllDirectories))
+                {
+                    var safePath = Conver2SafePath(fi.FullName);
+                    var refPath = GetRefPath(safePath, LocalPath);
+                    if(string.IsNullOrEmpty(refPath)) continue;
+
+                    var data = File.ReadAllBytes(fi.FullName);
+                    _localMd5Map[refPath] = GetMd5Hash(md5, data);
+                }
+
+                if (OnLocalMd5 != null)
+                    OnLocalMd5(_localMd5Map);
             }
         }
 
@@ -203,5 +214,26 @@ namespace HttpSynchronizer
             // Return the hexadecimal string.
             return sBuilder.ToString();
         }
+
+        private static string MsgFromException(Exception e)
+        {
+            return e.InnerException != null
+                ? e.InnerException.Message
+                : e.Message;
+        }
+
+        private static string Conver2SafePath(string path)
+        {
+            return path.Replace('\\', '/');
+        }
+
+        private static string GetRefPath(string path, string root)
+        {
+            var idx = path.IndexOf(root, StringComparison.Ordinal);
+            if (idx == -1) return string.Empty;
+
+            return path.Substring(idx + root.Length);
+        }
+
     }
 }

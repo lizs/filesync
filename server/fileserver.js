@@ -9,7 +9,6 @@ var fileServer = new static.Server('./public');
 
 var md5json = {};
 
-
 var md5_handle = function(req, res){
     res.end(JSON.stringify(md5json));
 };
@@ -43,7 +42,6 @@ var server = http.createServer(
 );
 
 server.listen(8080);
-
 
 // One-liner for current directory, ignores .dotfiles
 var watcher = chokidar.watch('./public', 
