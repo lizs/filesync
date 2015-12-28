@@ -39,7 +39,7 @@ var server = http.createServer(
     }, '', function(){
     	log('next invoked!');
     })
-);
+    );
 
 server.listen(8080);
 
@@ -52,8 +52,8 @@ var watcher = chokidar.watch('./public',
 
 var getmd5 = function(path, cb){
 	fs.readFile(path, function(err, buf) {
-  		cb(err ? '' : md5(buf), err);
-	});
+        cb(err ? '' : md5(buf),  buf.length, err);
+    });
 }
 
 var remove_root = function(path){
@@ -63,19 +63,25 @@ var remove_root = function(path){
 }
 
 watcher
-  .on('add', path => getmd5(path, (code, err)=>{
-  		md5json[remove_root(path)] = code;
-	  	log(path, ' created');
-	}))
-  .on('change', path => getmd5(path, (code, err)=>{
-  		md5json[remove_root(path)] = code;
-	  	log(path, ' changed');
-	}))
-  .on('unlink', path =>{
-	  	delete md5json[remove_root(path)];
-	  	log(path, ' removed');
-	})
-  .on('error', error => log(`Watcher error: ${error}`))
-  .on('ready', () => {
-	  	log('Initial scan complete. Ready for changes');
-	});
+.on('add', path => getmd5(path, (code, size, err)=>{
+    md5json[remove_root(path)] = {
+        'size':size,
+        'md5':code,
+    };
+    log(path, ' created');
+}))
+.on('change', path => getmd5(path, (code, size, err)=>{
+   md5json[remove_root(path)] = {
+    'size':size,
+    'md5':code,
+};
+log(path, ' changed');
+}))
+.on('unlink', path =>{
+    delete md5json[remove_root(path)];
+    log(path, ' removed');
+})
+.on('error', error => log(`Watcher error: ${error}`))
+.on('ready', () => {
+    log('Initial scan complete. Ready for changes');
+});

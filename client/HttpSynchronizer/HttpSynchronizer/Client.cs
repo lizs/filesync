@@ -12,19 +12,22 @@ namespace HttpSynchronizer
 {
     public class Client
     {
-        public event Action<IEnumerable<KeyValuePair<string, string>>> OnRemoteMd5;
-        public event Action<IEnumerable<KeyValuePair<string, string>>> OnLocalMd5;
+        public event Action<Dictionary<string, Dictionary<string, string>>> OnRemoteMd5;
+        public event Action<Dictionary<string, Dictionary<string, string>>> OnLocalMd5;
         public event Action<string> OnFileCreate;
         public event Action<string> OnFileDel;
         public event Action<string> OnFolderDel;
-        public event Action<List<string>> OnDiff; 
+        public event Action<List<KeyValuePair<string, int>>> OnDiff; 
 
         public string Url { get; private set; }
         public string RemoteMd5Path { get; private set; }
         public string LocalPath { get; private set; }
 
-        private readonly Dictionary<string, string> _localMd5Map = new Dictionary<string, string>();
-        private readonly Dictionary<string, string> _remoteMd5Map = new Dictionary<string, string>(); 
+        private readonly Dictionary<string, Dictionary<string, string>> _localMd5Map =
+            new Dictionary<string, Dictionary<string, string>>();
+
+        private readonly Dictionary<string, Dictionary<string, string>> _remoteMd5Map =
+            new Dictionary<string, Dictionary<string, string>>(); 
 
         public Client(string url, string remoteMd5Path, string localPath)
         {
@@ -65,7 +68,7 @@ namespace HttpSynchronizer
                             OnDiff(differences);
 
                         // download
-                        DownLoad(differences);
+                        DownLoad(differences.Select(x=>x.Key));
 
                         // del unusable files
                         Clear();
@@ -152,21 +155,27 @@ namespace HttpSynchronizer
         ///     计算本地与远端差异
         /// </summary>
         /// <returns></returns>
-        private IEnumerable<string> Differences()
+        private IEnumerable<KeyValuePair<string, int>> Differences()
         {
             return (from kv in _remoteMd5Map
-                    where !_localMd5Map.ContainsKey(kv.Key) || _remoteMd5Map[kv.Key] != _localMd5Map[kv.Key] 
-                    select kv.Key);
+                where !_localMd5Map.ContainsKey(kv.Key) || _remoteMd5Map[kv.Key]["md5"] != _localMd5Map[kv.Key]["md5"]
+                    select new KeyValuePair<string, int>(kv.Key, int.Parse(_remoteMd5Map[kv.Key]["size"])));
         }
 
         private void ParseRemoteMd5(string jsonText)
         {
             _remoteMd5Map.Clear();
 
-            var data = (IDictionary) JsonMapper.ToObject(jsonText);
-            foreach (var key in data.Keys)
+            var data = JsonMapper.ToObject(jsonText);
+            foreach (var key in ((IDictionary)data).Keys)
             {
-                _remoteMd5Map[(string) key] = data[key].ToString();
+                var k = (string)key;
+                var dic = (IDictionary)data[k];
+                _remoteMd5Map[k] = new Dictionary<string, string>
+                {
+                    {"md5", dic["md5"].ToString()},
+                    {"size", dic["size"].ToString()}
+                };
             }
 
             if (OnRemoteMd5 != null)
@@ -187,7 +196,11 @@ namespace HttpSynchronizer
                     if(string.IsNullOrEmpty(refPath)) continue;
 
                     var data = File.ReadAllBytes(fi.FullName);
-                    _localMd5Map[refPath] = GetMd5Hash(md5, data);
+                    _localMd5Map[refPath] = new Dictionary<string, string>
+                    {
+                        {"md5", GetMd5Hash(md5, data)},
+                        {"size", data.Length.ToString()}
+                    };
                 }
 
                 if (OnLocalMd5 != null)
