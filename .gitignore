@@ -56,5 +56,9 @@ Publish/ChatS
 *.txt
 *.vsp
 *.psess
+*.vc.db
+*.vc.opendb
+x64/
+debug/
 Publish/*.vshost.exe
 Publish/*.vshost.exe.config

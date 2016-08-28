@@ -1,0 +1,22 @@
+{
+   "root":
+   [
+      {
+         "path":"1.txt",
+         "size":1024,
+         "md5":"asdfasfdasdfasdfasdfasdfasdfasdf"
+      },
+
+      {
+         "path":"2.txt",
+         "size":1024,
+         "md5":"asdfasfdasdfasdfasdfasdfasdfasdf"
+      },
+
+      {
+         "path":"2.txt",
+         "size":1024,
+         "md5":"asdfasfdasdfasdfasdfasdfasdfasdf"
+      }
+   ]
+}
