@@ -13,21 +13,57 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="源文件\boost">
+      <UniqueIdentifier>{b7035ada-5ff2-47e0-b691-0b7b49cd0be0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FileSynchronizer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="json.cpp">
+    <ClCompile Include="md5.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpDownloader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\codecvt_error_category.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\operations.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\path.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\path_traits.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\portability.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\unique_path.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\utf8_codecvt_facet.cpp">
+      <Filter>源文件\boost</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\windows_file_codecvt.cpp">
+      <Filter>源文件\boost</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FileSynchronizer.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="WebClient.h">
+    <ClInclude Include="md5.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpDownloader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\boost_1_61_0\libs\filesystem\src\windows_file_codecvt.hpp">
+      <Filter>源文件\boost</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

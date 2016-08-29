@@ -1,8 +1,11 @@
 #include "FileSynchronizer.h"
 
+#include <string>
 #include <boost/filesystem.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include "md5.h"
+#include "HttpDownloader.h"
 
 namespace network
 {
@@ -24,12 +27,14 @@ namespace network
 		try
 		{
 			scan_local_md5();
-			auto webClient = new WebClient();
-			webClient->DownloadStringCompleted([&cb, this](bool success, const std::string& msg)
+
+			HttpDownloader downloader(m_localPath, m_url + m_remoteMd5Path);
+			// get remote md5 map
+			downloader.download_string_async(m_url + m_remoteMd5Path, [&cb, this](bool success, const std::string& msg)
 				{
-					if (!success)
+					if (!success && cb != nullptr)
 					{
-						cb(success, msg);
+						cb(false, msg);
 						return;
 					}
 
@@ -39,12 +44,22 @@ namespace network
 					if (m_differencesGot != nullptr)
 						m_differencesGot(diff);
 
-					download(diff);
-					clear();
-					cb(true, "ok");
+					// update
+					download(diff, [this, &cb](bool success, const std::string& message) {
+						if(cb != nullptr)
+						{
+							if (success)
+							{
+								clear();
+								cb(true, "ok");
+							}
+							else
+							{
+								cb(false, message);
+							}
+						}
+					});
 				});
-
-			webClient->download_string_async(m_url + m_remoteMd5Path);
 		}
 		catch (...)
 		{
@@ -52,8 +67,24 @@ namespace network
 		}
 	}
 
-	void FileClient::download(const std::vector<std::pair<std::string, int>>& diff)
+	void FileClient::download(const std::vector<std::pair<std::string, int>>& diff, std::function<void(bool, const std::string&)> cb)
 	{
+		if(diff.empty())
+			return;
+
+		auto expiredFiles = std::vector<std::string>();
+		for(auto & kv : diff)
+		{
+			expiredFiles.push_back(kv.first);
+		}
+
+		HttpDownloader downloader(m_localPath, m_url);
+		downloader.download_async(expiredFiles,  [this, &cb](bool success, const std::string& message){
+			if(cb != nullptr)
+			{
+				cb(success, message);
+			}
+		});
 	}
 
 	void FileClient::remove_expired_files()
@@ -83,20 +114,12 @@ namespace network
 	{
 		for (auto& dir : filesystem::directory_iterator(root))
 		{
-			//remove_empty_directories(dir.path);
+			remove_empty_directories(dir.path().string());
 
 			if (!filesystem::is_empty(dir))
 				continue;
 
 			filesystem::remove_all(root);
-		}
-	}
-
-	void FileClient::download(std::vector<std::string>& files)
-	{
-		WebClient downloader;
-		for (auto path : files)
-		{
 		}
 	}
 	
@@ -111,51 +134,73 @@ namespace network
 	{
 		m_localMd5Map.clear();
 
-		//property_tree::ptree tree;		
-		//property_tree::json_parser::read_json(text, tree);
+		property_tree::ptree tree;
+		std::stringstream oss;
+		oss << text;
+		property_tree::read_json(oss, tree);
 
-		//auto root = tree.get_child("root");
-		//for (auto kv : root)
-		//{
-		//	//m_remoteMd5Map[kv.first] = kv.second;
-		//}
+		for (auto & kv : tree.get_child("root"))
+		{
+			auto node = kv.second;
+			auto path = node.get<std::string>("path");
+			auto size = node.get<int>("size");
+			auto md5 = node.get<std::string>("md5");
 
-		//var data = JsonMapper.ToObject(jsonText);
-		//foreach(var key in((IDictionary)data).Keys)
-		//{
-		//	var k = (string)key;
-		//	var dic = (IDictionary)data[k];
-		//	_remoteMd5Map[k] = new Dictionary<string, string>
-		//	{
-		//		{ "md5", dic["md5"].ToString() },
-		//		{ "size", dic["size"].ToString() }
-		//	};
-		//}
+			auto innerMap = std::map<std::string, std::string>();
+			innerMap["md5"] = md5;
 
-		//if (OnRemoteMd5 != null)
-		//	OnRemoteMd5(_remoteMd5Map);
+			std::stringstream ss;
+			ss << size;
 
+			innerMap["size"] = ss.str();
 
+			m_remoteMd5Map[path] = innerMap;
+		}
 
-		//// Use the throwing version of get to find the debug filename.
-		//// If the path cannot be resolved, an exception is thrown.
-		//m_file = tree.get<std::string>("debug.filename");
-
-		//// Use the default-value version of get to find the debug level.
-		//// Note that the default value is used to deduce the target type.
-		//m_level = tree.get("debug.level", 0);
-
-		//// Use get_child to find the node containing the modules, and iterate over
-		//// its children. If the path cannot be resolved, get_child throws.
-		//// A C++11 for-range loop would also work.
-		//BOOST_FOREACH(pt::ptree::value_type &v, tree.get_child("debug.modules")) {
-		//	// The data function is used to access the data stored in a node.
-		//	m_modules.insert(v.second.data());
-		//}
+		if (m_remoteMd5Got != nullptr)
+			m_remoteMd5Got(m_remoteMd5Map);
 	}
 
 	void FileClient::scan_local_md5()
 	{
+		m_localMd5Map.clear();
+		
+		scan_local_md5(m_localPath);
+
+		if (m_localMd5Got != nullptr)
+			m_localMd5Got(m_localMd5Map);
+	}
+
+	void FileClient::scan_local_md5(const std::string & path)
+	{
+		for (auto& entry : filesystem::directory_iterator(path))
+		{
+			if (filesystem::is_regular_file(entry))
+			{
+				auto refPath = filesystem::relative(entry, m_localPath);
+
+				std::fstream file(filesystem::unique_path(entry).string(), std::ios::in | std::ios::binary | std::ios::ate);
+				if(!file.is_open())
+				{
+					throw std::runtime_error(entry.path().string() + "couldn't open!");
+				}
+
+				size_t size = file.tellg();
+				file.seekg(0, std::ios::beg);
+				std::auto_ptr<char> bytes(new char[size]);
+
+				m_localMd5Map[refPath.string()] = std::map<std::string, std::string>
+				{
+					{ "md5", MD5(bytes.get()).toStr() },
+					{ "size", to_string(size) }
+				};
+
+			}
+			else if(filesystem::is_directory(entry))
+			{
+				scan_local_md5(entry.path().string());
+			}
+		}
 	}
 
 	std::vector<std::pair<std::string, int>> FileClient::make_diff()

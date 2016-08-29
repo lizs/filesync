@@ -3,9 +3,9 @@
 #include <string>
 #include <map>
 #include <functional>
-
-#include "WebClient.h"
 #include <vector>
+#include <sstream>
+#include <memory>
 #include <boost/system/error_code.hpp>
 
 using namespace boost;
@@ -36,38 +36,38 @@ namespace network
 #pragma endregion 
 
 	public:
-		const system::error_code & getLastError() const
+		const system::error_code & get_last_error() const
 		{
 			return m_lastError;
 		}
 
 #pragma region callbacks register
-		void OnRemoteMd5Got(std::function<void(Md5Map)> cb)
+		void on_remote_md5_got(std::function<void(Md5Map)> cb)
 		{
 			m_remoteMd5Got = cb;
 		}
 
-		void OnLocalMd5Got(std::function<void(Md5Map)> cb)
+		void on_local_md5_got(std::function<void(Md5Map)> cb)
 		{
 			m_localMd5Got = cb;
 		}
 
-		void OnFileCreate(std::function<void(std::string)> cb)
+		void on_file_create(std::function<void(std::string)> cb)
 		{
 			m_fileCreate = cb;
 		}
 
-		void OnFileDelete(std::function<void(std::string)> cb)
+		void on_file_delete(std::function<void(std::string)> cb)
 		{
 			m_fileDelete = cb;
 		}
 
-		void OnFolderCreate(std::function<void(std::string)> cb)
+		void on_folder_create(std::function<void(std::string)> cb)
 		{
 			m_folderDelete = cb;
 		}
 
-		void OnDifferencesGot(std::function<void(std::vector<std::pair<std::string, int>>)> cb)
+		void on_differences_got(std::function<void(std::vector<std::pair<std::string, int>>)> cb)
 		{
 			m_differencesGot = cb;
 		}
@@ -80,15 +80,36 @@ namespace network
 		void parse_remote_md5(const std::string& cs);
 
 	private:
-		void download(const std::vector<std::pair<std::string, int>>& diff);
-		void download(std::vector<std::string>& files);
+		void download(const std::vector<std::pair<std::string, int>>& diff, std::function<void(bool, const std::string&)> cb);
 
 		void remove_expired_files();
 		void remove_empty_directories(const std::string& root);
 
 		void clear();
 		void scan_local_md5();
+		void scan_local_md5(const std::string & path);
 		std::vector<std::pair<std::string, int>> make_diff();
+
+#pragma region tool methods
+		template<typename T>
+		T to(const std::string & input)
+		{
+			std::stringstream ss;
+			ss << input;
+
+			T ret;
+			ss >> ret;
+			return ret;
+		}
+		
+		template<typename T>
+		static std::string to_string(const T & input)
+		{
+			std::stringstream ss;
+			ss << input;
+			return std::move(ss.str());
+		}
+#pragma endregion 
 
 	private:
 		std::string m_url;
